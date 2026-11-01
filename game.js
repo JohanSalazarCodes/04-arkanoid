@@ -27,7 +27,34 @@ const state = {
   blocks: [/* { x, y, color, points, alive } */],
 };
 
-const ctx = document.getElementById('game').getContext('2d');
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+const clampPaddle = x => Math.max(0, Math.min(W - CFG.paddle.w, x));
+
+// Entrada: ratón (posición absoluta) y teclado (flechas / A-D)
+const keys = new Set();
+addEventListener('keydown', e => keys.add(e.code));
+addEventListener('keyup', e => keys.delete(e.code));
+canvas.addEventListener('mousemove', e => {
+  const r = canvas.getBoundingClientRect();
+  state.paddle.x = clampPaddle(e.clientX - r.left - CFG.paddle.w / 2);
+});
+
+function update(dt) {
+  const dir = (keys.has('ArrowRight') || keys.has('KeyD')) -
+              (keys.has('ArrowLeft') || keys.has('KeyA'));
+  state.paddle.x = clampPaddle(state.paddle.x + dir * CFG.paddle.keySpeed * dt);
+}
+
+let last = 0;
+function frame(t) {
+  const dt = Math.min((t - last) / 1000, 1 / 30); // limitar dt a 1/30 s
+  last = t;
+  update(dt);
+  draw();
+  requestAnimationFrame(frame);
+}
 
 function draw() {
   const { paddle, ball } = CFG;
@@ -38,4 +65,4 @@ function draw() {
     paddle.y - ball.size, ball.size, ball.size);
 }
 
-loadSpritesheet(draw);
+loadSpritesheet(() => requestAnimationFrame(t => { last = t; frame(t); }));
