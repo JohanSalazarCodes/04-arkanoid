@@ -25,6 +25,7 @@ const state = {
   paddle: { x: (W - CFG.paddle.w) / 2 }, // x del borde izquierdo; y fija en CFG
   ball:   { x: 0, y: 0, vx: 0, vy: 0 },
   blocks: [/* { x, y, color, points, alive } */],
+  explosions: [/* { x, y, color, t } */], // t = ms desde la rotura
 };
 
 const canvas = document.getElementById('game');
@@ -59,6 +60,7 @@ function createBlocks() {
 
 function resetGame() {
   createBlocks();
+  state.explosions = [];
   state.score = 0;
   state.lives = CFG.lives;
   state.paddle.x = (W - CFG.paddle.w) / 2;
@@ -82,6 +84,11 @@ addEventListener('keydown', e => {
 });
 
 function update(dt) {
+  for (const e of state.explosions) e.t += dt * 1000;
+  state.explosions = state.explosions.filter(e => e.t < EXPLOSION_DURATION);
+  if (state.phase === 'playing' && !state.explosions.length && !state.blocks.some(k => k.alive))
+    state.phase = 'won';
+
   const dir = (keys.has('ArrowRight') || keys.has('KeyD')) -
               (keys.has('ArrowLeft') || keys.has('KeyA'));
   state.paddle.x = clampPaddle(state.paddle.x + dir * CFG.paddle.keySpeed * dt);
@@ -118,8 +125,8 @@ function update(dt) {
     if (penX < penY) b.vx = (b.x + s / 2 < k.x + bw / 2 ? -1 : 1) * Math.abs(b.vx);
     else             b.vy = (b.y + s / 2 < k.y + bh / 2 ? -1 : 1) * Math.abs(b.vy);
     k.alive = false;
+    state.explosions.push({ x: k.x, y: k.y, color: k.color, t: 0 });
     state.score += k.points;
-    if (!state.blocks.some(k => k.alive)) { state.phase = 'won'; return; }
   }
 
   // Cae por abajo: pierde una vida
@@ -143,6 +150,10 @@ function draw() {
   ctx.clearRect(0, 0, W, H);
   for (const k of state.blocks)
     if (k.alive) drawSprite(ctx, 'block_' + k.color, k.x, k.y, CFG.blocks.w, CFG.blocks.h);
+  for (const e of state.explosions) {
+    const f = Math.min(3, Math.floor(e.t / EXPLOSION_DURATION * 4));
+    drawFrame(ctx, EXPLOSION_FRAMES[e.color][f], e.x, e.y, CFG.blocks.w, CFG.blocks.h);
+  }
   drawSprite(ctx, 'paddle', state.paddle.x, paddle.y, paddle.w, paddle.h);
   drawSprite(ctx, 'ball', state.ball.x, state.ball.y, ball.size, ball.size);
 
