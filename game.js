@@ -48,7 +48,17 @@ function stickBall() {
   state.ball.y = paddle.y - ball.size;
 }
 
+function createBlocks() {
+  const { cols, w, h, offsetX, offsetY } = CFG.blocks;
+  state.blocks = ROWS.flatMap((row, r) =>
+    Array.from({ length: cols }, (_, c) => ({
+      x: offsetX + c * w, y: offsetY + r * h,
+      color: row.color, points: row.points, alive: true,
+    })));
+}
+
 function resetGame() {
+  createBlocks();
   state.score = 0;
   state.lives = CFG.lives;
   state.paddle.x = (W - CFG.paddle.w) / 2;
@@ -97,6 +107,21 @@ function update(dt) {
     b.y = p.y - s;
   }
 
+  // Colisión con bloques: rebota por el eje de menor penetración; un bloque por frame
+  const { w: bw, h: bh } = CFG.blocks;
+  const hitBlock = state.blocks.find(k => k.alive &&
+    b.x + s > k.x && b.x < k.x + bw && b.y + s > k.y && b.y < k.y + bh);
+  if (hitBlock) {
+    const k = hitBlock;
+    const penX = Math.min(b.x + s - k.x, k.x + bw - b.x);
+    const penY = Math.min(b.y + s - k.y, k.y + bh - b.y);
+    if (penX < penY) b.vx = (b.x + s / 2 < k.x + bw / 2 ? -1 : 1) * Math.abs(b.vx);
+    else             b.vy = (b.y + s / 2 < k.y + bh / 2 ? -1 : 1) * Math.abs(b.vy);
+    k.alive = false;
+    state.score += k.points;
+    if (!state.blocks.some(k => k.alive)) { state.phase = 'won'; return; }
+  }
+
   // Cae por abajo: pierde una vida
   if (b.y > H) {
     state.lives--;
@@ -116,6 +141,8 @@ function frame(t) {
 function draw() {
   const { paddle, ball } = CFG;
   ctx.clearRect(0, 0, W, H);
+  for (const k of state.blocks)
+    if (k.alive) drawSprite(ctx, 'block_' + k.color, k.x, k.y, CFG.blocks.w, CFG.blocks.h);
   drawSprite(ctx, 'paddle', state.paddle.x, paddle.y, paddle.w, paddle.h);
   drawSprite(ctx, 'ball', state.ball.x, state.ball.y, ball.size, ball.size);
 
@@ -137,4 +164,5 @@ function draw() {
   }
 }
 
-loadSpritesheet(() => requestAnimationFrame(t => { last = t; frame(t); }));
+createBlocks();
+loadSpritesheet(() =>requestAnimationFrame(t => { last = t; frame(t); }));
