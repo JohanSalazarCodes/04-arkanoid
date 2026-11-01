@@ -7,50 +7,9 @@ const CFG = {
   lives: 3,
 };
 
-// Leyenda: letra de los patrones -> color y puntos
-const LEGEND = {
-  g: { color: 'gray',    points: 70 },
-  h: { color: 'hotpink', points: 60 },
-  r: { color: 'red',     points: 50 },
-  m: { color: 'magenta', points: 40 },
-  y: { color: 'yellow',  points: 30 },
-  v: { color: 'green',   points: 20 },
-  c: { color: 'cyan',    points: 10 },
-};
-
-// 12 caracteres por fila; '.' = sin bloque. La fila 0 es la de arriba.
-const LEVELS = [
-  [ // Nivel 1: cuadrícula completa (84 bloques)
-    'gggggggggggg',
-    'hhhhhhhhhhhh',
-    'rrrrrrrrrrrr',
-    'mmmmmmmmmmmm',
-    'yyyyyyyyyyyy',
-    'vvvvvvvvvvvv',
-    'cccccccccccc',
-  ],
-  [ // Nivel 2: pirámide (54 bloques)
-    '.....gg.....',
-    '....hhhh....',
-    '...rrrrrr...',
-    '..mmmmmmmm..',
-    '.yyyyyyyyyy.',
-    'vvvvvvvvvvvv',
-    'cccccccccccc',
-  ],
-  [ // Nivel 3: dos columnas vacías (70 bloques)
-    'ggg.gggg.ggg',
-    'hhh.hhhh.hhh',
-    'rrr.rrrr.rrr',
-    'mmm.mmmm.mmm',
-    'yyy.yyyy.yyy',
-    'vvv.vvvv.vvv',
-    'ccc.cccc.ccc',
-  ],
-];
-
 const state = {
-  phase: 'ready',          // 'ready' | 'playing' | 'gameover' | 'won'
+  phase: 'menu',           // 'menu' | 'ready' | 'playing' | 'gameover' | 'won'
+  paused: false,           // solo válido en 'playing'
   score: 0,
   lives: CFG.lives,
   paddle: { x: (W - CFG.paddle.w) / 2 }, // x del borde izquierdo; y fija en CFG
@@ -66,12 +25,12 @@ const sounds = {
   break:  new Audio('assets/sounds/break-sound.mp3'),
 };
 
-// Reinicia y reproduce; ignora el rechazo de play() (p. ej. autoplay bloqueado)
+// Reproduce una copia nueva por llamada para que los sonidos se superpongan
+// (antes se reiniciaba el mismo Audio y cortaba el anterior). Ignora el rechazo
+// de play() (p. ej. autoplay bloqueado). El clon usa la caché del navegador.
 function playSound(name) {
   if (state.muted) return;
-  const s = sounds[name];
-  s.currentTime = 0;
-  s.play().catch(() => {});
+  sounds[name].cloneNode().play().catch(() => {});
 }
 
 const canvas = document.getElementById('game');
@@ -84,6 +43,7 @@ const keys = new Set();
 addEventListener('keydown', e => keys.add(e.code));
 addEventListener('keyup', e => keys.delete(e.code));
 canvas.addEventListener('mousemove', e => {
+  if (state.paused) return;
   const r = canvas.getBoundingClientRect();
   state.paddle.x = clampPaddle(e.clientX - r.left - CFG.paddle.w / 2);
 });
@@ -104,8 +64,17 @@ function createBlocks() {
     }] : [])); // '.' o letra desconocida = sin bloque
 }
 
-function resetGame() {
+// Pantalla de inicio: elegir nivel con 1-3, flechas ↑/↓ y espacio/clic
+function showMenu() {
+  state.phase = 'menu';
+  state.paused = false;
   state.level = 1;
+  createBlocks();
+  state.explosions = [];
+}
+
+function resetGame(level = 1) {
+  state.level = level;
   createBlocks();
   state.explosions = [];
   state.score = 0;
@@ -119,8 +88,9 @@ const ballSpeed = () => CFG.ball.speed * (1 + CFG.ball.speedPerLevel * (state.le
 // Lanza hacia arriba con un ángulo aleatorio de ±15° respecto a la vertical.
 // En las pantallas de fin, reinicia la partida.
 function launch() {
-  if (state.phase === 'gameover' || state.phase === 'won') return resetGame();
-  if (state.phase !== 'ready') return;
+  if (state.phase === 'gameover' || state.phase === 'won') return showMenu();
+  if (state.phase === 'menu') return resetGame(state.level);
+  if (state.phase !== 'ready' || state.paused) return;
   const a = (Math.random() * 30 - 15) * Math.PI / 180;
   state.ball.vx = ballSpeed() * Math.sin(a);
   state.ball.vy = -ballSpeed() * Math.cos(a);
@@ -131,11 +101,22 @@ canvas.addEventListener('mousedown', launch);
 addEventListener('keydown', e => {
   if (e.code === 'Space') { e.preventDefault(); launch(); }
   if (e.code === 'KeyM' && !e.repeat) state.muted = !state.muted;
+  if ((e.code === 'KeyP' || e.code === 'Escape') && !e.repeat && state.phase === 'playing')
+    state.paused = !state.paused;
+  if (state.phase === 'menu') {
+    const n = +e.key;
+    if (n >= 1 && n <= LEVELS.length) resetGame(n);
+    if (e.code === 'ArrowUp' || e.code === 'ArrowDown') {
+      state.level = (state.level - 1 + (e.code === 'ArrowDown' ? 1 : LEVELS.length - 1)) % LEVELS.length + 1;
+      createBlocks();
+    }
+  }
 });
 
 const cleared = () => !state.blocks.some(k => k.alive);
 
 function update(dt) {
+  if (state.paused) return;
   for (const e of state.explosions) e.t += dt * 1000;
   state.explosions = state.explosions.filter(e => e.t < EXPLOSION_DURATION);
   if (state.phase === 'playing' && !state.explosions.length && cleared()) {
@@ -211,7 +192,7 @@ function draw() {
     drawFrame(ctx, EXPLOSION_FRAMES[e.color][f], e.x, e.y, CFG.blocks.w, CFG.blocks.h);
   }
   drawSprite(ctx, 'paddle', state.paddle.x, paddle.y, paddle.w, paddle.h);
-  if (!cleared()) drawSprite(ctx, 'ball', state.ball.x, state.ball.y, ball.size, ball.size);
+  if (!cleared() && state.phase !== 'menu') drawSprite(ctx, 'ball', state.ball.x, state.ball.y, ball.size, ball.size);
 
   // HUD
   ctx.fillStyle = '#fff';
@@ -226,6 +207,22 @@ function draw() {
   }
   for (let i = 0; i < state.lives; i++)
     drawSprite(ctx, 'ball', W - 16 - (i + 1) * (ball.size + 6), 14, ball.size, ball.size);
+
+  if (state.paused || state.phase === 'menu') {
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.font = '48px monospace';
+    ctx.fillText(state.paused ? 'Pausa' : 'Arkanoid', W / 2, H / 2 - 60);
+    ctx.font = '24px monospace';
+    if (state.paused) ctx.fillText('P o Esc para continuar', W / 2, H / 2 - 10);
+    else {
+      LEVELS.forEach((_, i) => ctx.fillText((state.level === i + 1 ? '> ' : '  ') + 'Nivel ' + (i + 1),
+        W / 2, H / 2 - 10 + i * 34));
+      ctx.fillText('1-' + LEVELS.length + ' o ↑/↓ y espacio/clic', W / 2, H / 2 + 20 + LEVELS.length * 34);
+    }
+  }
 
   if (state.phase === 'gameover' || state.phase === 'won') {
     ctx.textAlign = 'center';
