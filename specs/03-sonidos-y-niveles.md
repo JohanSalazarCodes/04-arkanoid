@@ -1,6 +1,6 @@
 # SPEC 03 — Sonidos y niveles
 
-> **Estado:** Aprobado
+> **Estado:** Implementado
 > **Depende de:** SPEC 01, SPEC 02
 > **Fecha:** 2026-11-01
 > **Objetivo:** El juego reproduce `ball-bounce.mp3` y `break-sound.mp3` en rebotes y roturas (con tecla M para silenciar) y avanza por 3 niveles de patrón distinto, con la bola un 10% más rápida en cada uno.
