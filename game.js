@@ -3,7 +3,7 @@ const W = 800, H = 600;
 const CFG = {
   paddle: { w: 130, h: 14, y: 560, keySpeed: 600 },
   ball:   { size: 16, speed: 360, maxAngle: 60 }, // grados respecto a la vertical
-  blocks: { cols: 12, w: 64, h: 32, offsetX: 16, offsetY: 60 }, // sprite 32x16 a escala 2x
+  blocks: { cols: 12, w: 48, h: 24, offsetX: 112, offsetY: 90 }, // sprite 32x16 a escala 1.5x; centrado en W
   lives: 3,
 };
 
@@ -151,8 +151,8 @@ function draw() {
   ctx.font = '20px monospace';
   ctx.textAlign = 'left';
   ctx.fillText('Puntos: ' + state.score, 16, 30);
-  ctx.textAlign = 'right';
-  ctx.fillText('Vidas: ' + state.lives, W - 16, 30);
+  for (let i = 0; i < state.lives; i++)
+    drawSprite(ctx, 'ball', W - 16 - (i + 1) * (ball.size + 6), 14, ball.size, ball.size);
 
   if (state.phase === 'gameover' || state.phase === 'won') {
     ctx.textAlign = 'center';

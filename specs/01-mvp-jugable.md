@@ -1,6 +1,6 @@
 # SPEC 01 — MVP jugable de Arkanoid
 
-> **Estado:** Aprobado
+> **Estado:** Implementado
 > **Depende de:** ninguna (usa los assets existentes en `assets/`)
 > **Fecha:** 2026-11-01
 > **Objetivo:** Un Arkanoid de un nivel con 3 vidas, controlable con ratón y teclado, que se abre desde `index.html` y se juega de principio a fin.
