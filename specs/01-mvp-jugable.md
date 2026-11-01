@@ -79,6 +79,8 @@ Convenciones:
 
 ## Plan de implementación
 
+**Control de versiones:** el repo ya existe (rama `main`, commit inicial `1230041`). La implementación se hace en la rama `spec-01-mvp-jugable`, creada desde `main`. Cada paso termina con un commit propio (`spec-01 paso N: <resumen>`), de modo que un paso fallido se descarta con `git reset --hard HEAD~1` o, si todo sale mal, abandonando la rama sin tocar `main`. `main` solo recibe el merge cuando se cumplen todos los criterios de aceptación.
+
 1. Crear `index.html` (canvas 800x600, carga `assets/spritesheet.js`, `game.js`, `style.css`), `style.css` (canvas centrado, fondo oscuro) y `game.js` que, dentro de `loadSpritesheet`, dibuje paleta y bola en reposo. Prueba: abrir `index.html` y ver ambos sprites sin errores en consola.
 2. Añadir el bucle `requestAnimationFrame` con `dt` y el movimiento de la paleta por ratón y teclado, limitada a los bordes del canvas. Prueba: la paleta sigue al ratón y a las flechas / A-D.
 3. Añadir estado `ready`/`playing`: bola pegada a la paleta, lanzamiento con clic o espacio, rebote en paredes y techo. Prueba: la bola rebota en los tres bordes.
@@ -102,6 +104,8 @@ Convenciones:
 - [ ] Si la bola cae por debajo de la paleta se pierde una vida y el HUD muestra las vidas restantes.
 - [ ] Con 0 vidas aparece "Game Over" con la puntuación final, y clic o espacio inicia una partida nueva con 3 vidas y 0 puntos.
 - [ ] Al romper todos los bloques aparece "Victoria" con la puntuación final, y clic o espacio inicia una partida nueva.
+- [ ] Existe la rama `spec-01-mvp-jugable` con un commit por cada paso del plan (5 commits de implementación).
+- [ ] `main` no contiene cambios de la implementación hasta que se haga el merge, con los demás criterios ya cumplidos.
 - [ ] El juego no usa dependencias externas ni requiere servidor (abre con `file://`).
 
 ---
@@ -122,6 +126,8 @@ Convenciones:
 - **No:** velocidad creciente. Añade ajuste de dificultad que probar.
 - **Sí:** verificación manual con checklist. El proyecto no tiene build ni tests.
 - **No:** Playwright. Introduciría tooling que el proyecto no usa.
+- **Sí:** rama dedicada y un commit por paso. Si la implementación falla o sale algo inesperado, se revierte un paso o se descarta la rama sin afectar `main`.
+- **No:** trabajar directo sobre `main`. Sin punto de retorno limpio si un paso rompe el juego.
 - **Sí:** movimiento con `dt` en lugar de px/frame. La velocidad no depende de los Hz del monitor.
 - **Sí:** puntos por fila crecientes hacia arriba (10 a 70). Valores ajustables en `ROWS`.
 
