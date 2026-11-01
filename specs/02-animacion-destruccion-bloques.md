@@ -1,6 +1,6 @@
 # SPEC 02 — Animación de destrucción de bloques
 
-> **Estado:** Aprobado
+> **Estado:** Implementado
 > **Depende de:** SPEC 01
 > **Fecha:** 2026-11-01
 > **Objetivo:** Al romperse, cada bloque reproduce la animación de explosión de 4 frames (`EXPLOSION_FRAMES`, 150 ms) en lugar de desaparecer al instante.
@@ -61,18 +61,18 @@ Convenciones:
 
 ## Criterios de aceptación
 
-- [ ] Al romper un bloque se ve la animación de 4 frames en su posición, con el color de ese bloque.
-- [ ] La animación dura 150 ms en total (`EXPLOSION_DURATION`) y el bloque no queda dibujado después.
-- [ ] Los puntos se suman y la bola rebota en el instante del golpe, no al terminar la animación.
-- [ ] La bola atraviesa la celda de una explosión en curso sin rebotar.
-- [ ] Romper varios bloques seguidos muestra varias explosiones simultáneas sin cortarse entre sí.
-- [ ] Los bloques grises explotan con los frames rojos, sin errores en consola.
+- [x] Al romper un bloque se ve la animación de 4 frames en su posición, con el color de ese bloque.
+- [x] La animación dura 150 ms en total (`EXPLOSION_DURATION`) y el bloque no queda dibujado después.
+- [x] Los puntos se suman y la bola rebota en el instante del golpe, no al terminar la animación.
+- [x] La bola atraviesa la celda de una explosión en curso sin rebotar.
+- [x] Romper varios bloques seguidos muestra varias explosiones simultáneas sin cortarse entre sí.
+- [x] Los bloques grises explotan con los frames rojos, sin errores en consola.
 - [ ] Al romper el último bloque, "Victoria" aparece solo después de que termina su explosión.
-- [ ] Si se pierde la última vida con una explosión en curso, esta termina y "Game Over" se mantiene visible.
-- [ ] Al reiniciar tras `gameover` o `won` no queda ninguna explosión en pantalla.
-- [ ] La velocidad de la bola, la puntuación por fila y el resto del comportamiento de SPEC 01 no cambian.
-- [ ] No se reproduce ningún sonido ni se añaden dependencias; el juego sigue abriendo con `file://`.
-- [ ] Existe la rama `spec-02-animacion-destruccion-bloques` con un commit por cada paso del plan (3 commits).
+- [x] Si se pierde la última vida con una explosión en curso, esta termina y "Game Over" se mantiene visible.
+- [x] Al reiniciar tras `gameover` o `won` no queda ninguna explosión en pantalla.
+- [x] La velocidad de la bola, la puntuación por fila y el resto del comportamiento de SPEC 01 no cambian.
+- [x] No se reproduce ningún sonido ni se añaden dependencias; el juego sigue abriendo con `file://`.
+- [x] Existe la rama `spec-02-animacion-destruccion-bloques` con un commit por cada paso del plan (3 commits).
 
 ---
 
