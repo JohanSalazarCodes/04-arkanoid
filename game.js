@@ -83,10 +83,12 @@ addEventListener('keydown', e => {
   if (e.code === 'Space') { e.preventDefault(); launch(); }
 });
 
+const cleared = () => !state.blocks.some(k => k.alive);
+
 function update(dt) {
   for (const e of state.explosions) e.t += dt * 1000;
   state.explosions = state.explosions.filter(e => e.t < EXPLOSION_DURATION);
-  if (state.phase === 'playing' && !state.explosions.length && !state.blocks.some(k => k.alive))
+  if (state.phase === 'playing' && !state.explosions.length && cleared())
     state.phase = 'won';
 
   const dir = (keys.has('ArrowRight') || keys.has('KeyD')) -
@@ -95,7 +97,7 @@ function update(dt) {
 
   const b = state.ball, s = CFG.ball.size;
   if (state.phase === 'ready') return stickBall();
-  if (state.phase !== 'playing') return;
+  if (state.phase !== 'playing' || cleared()) return; // sin bloques: la bola ya no se mueve
 
   b.x += b.vx * dt;
   b.y += b.vy * dt;
@@ -155,7 +157,7 @@ function draw() {
     drawFrame(ctx, EXPLOSION_FRAMES[e.color][f], e.x, e.y, CFG.blocks.w, CFG.blocks.h);
   }
   drawSprite(ctx, 'paddle', state.paddle.x, paddle.y, paddle.w, paddle.h);
-  drawSprite(ctx, 'ball', state.ball.x, state.ball.y, ball.size, ball.size);
+  if (!cleared()) drawSprite(ctx, 'ball', state.ball.x, state.ball.y, ball.size, ball.size);
 
   // HUD
   ctx.fillStyle = '#fff';
