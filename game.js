@@ -41,10 +41,40 @@ canvas.addEventListener('mousemove', e => {
   state.paddle.x = clampPaddle(e.clientX - r.left - CFG.paddle.w / 2);
 });
 
+// Bola pegada al centro de la paleta
+function stickBall() {
+  const { paddle, ball } = CFG;
+  state.ball.x = state.paddle.x + (paddle.w - ball.size) / 2;
+  state.ball.y = paddle.y - ball.size;
+}
+
+// Lanza hacia arriba con un ángulo aleatorio de ±15° respecto a la vertical
+function launch() {
+  if (state.phase !== 'ready') return;
+  const a = (Math.random() * 30 - 15) * Math.PI / 180;
+  state.ball.vx = CFG.ball.speed * Math.sin(a);
+  state.ball.vy = -CFG.ball.speed * Math.cos(a);
+  state.phase = 'playing';
+}
+
+canvas.addEventListener('mousedown', launch);
+addEventListener('keydown', e => {
+  if (e.code === 'Space') { e.preventDefault(); launch(); }
+});
+
 function update(dt) {
   const dir = (keys.has('ArrowRight') || keys.has('KeyD')) -
               (keys.has('ArrowLeft') || keys.has('KeyA'));
   state.paddle.x = clampPaddle(state.paddle.x + dir * CFG.paddle.keySpeed * dt);
+
+  const b = state.ball, s = CFG.ball.size;
+  if (state.phase === 'ready') return stickBall();
+
+  b.x += b.vx * dt;
+  b.y += b.vy * dt;
+  if (b.x < 0)     { b.x = 0;     b.vx = Math.abs(b.vx); }
+  if (b.x > W - s) { b.x = W - s; b.vx = -Math.abs(b.vx); }
+  if (b.y < 0)     { b.y = 0;     b.vy = Math.abs(b.vy); }
 }
 
 let last = 0;
@@ -60,9 +90,7 @@ function draw() {
   const { paddle, ball } = CFG;
   ctx.clearRect(0, 0, W, H);
   drawSprite(ctx, 'paddle', state.paddle.x, paddle.y, paddle.w, paddle.h);
-  // bola en reposo, centrada sobre la paleta
-  drawSprite(ctx, 'ball', state.paddle.x + (paddle.w - ball.size) / 2,
-    paddle.y - ball.size, ball.size, ball.size);
+  drawSprite(ctx, 'ball', state.ball.x, state.ball.y, ball.size, ball.size);
 }
 
 loadSpritesheet(() => requestAnimationFrame(t => { last = t; frame(t); }));
