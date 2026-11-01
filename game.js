@@ -48,8 +48,17 @@ function stickBall() {
   state.ball.y = paddle.y - ball.size;
 }
 
-// Lanza hacia arriba con un ángulo aleatorio de ±15° respecto a la vertical
+function resetGame() {
+  state.score = 0;
+  state.lives = CFG.lives;
+  state.paddle.x = (W - CFG.paddle.w) / 2;
+  state.phase = 'ready';
+}
+
+// Lanza hacia arriba con un ángulo aleatorio de ±15° respecto a la vertical.
+// En las pantallas de fin, reinicia la partida.
 function launch() {
+  if (state.phase === 'gameover' || state.phase === 'won') return resetGame();
   if (state.phase !== 'ready') return;
   const a = (Math.random() * 30 - 15) * Math.PI / 180;
   state.ball.vx = CFG.ball.speed * Math.sin(a);
@@ -69,12 +78,30 @@ function update(dt) {
 
   const b = state.ball, s = CFG.ball.size;
   if (state.phase === 'ready') return stickBall();
+  if (state.phase !== 'playing') return;
 
   b.x += b.vx * dt;
   b.y += b.vy * dt;
   if (b.x < 0)     { b.x = 0;     b.vx = Math.abs(b.vx); }
   if (b.x > W - s) { b.x = W - s; b.vx = -Math.abs(b.vx); }
   if (b.y < 0)     { b.y = 0;     b.vy = Math.abs(b.vy); }
+
+  // Rebote en la paleta: el ángulo depende del punto de impacto (-1 izq … 1 der)
+  const p = CFG.paddle, px = state.paddle.x;
+  if (b.vy > 0 && b.y + s >= p.y && b.y + s <= p.y + p.h + b.vy * dt &&
+      b.x + s > px && b.x < px + p.w) {
+    const hit = Math.max(-1, Math.min(1, (b.x + s / 2 - (px + p.w / 2)) / (p.w / 2)));
+    const a = hit * CFG.ball.maxAngle * Math.PI / 180;
+    b.vx = CFG.ball.speed * Math.sin(a);
+    b.vy = -CFG.ball.speed * Math.cos(a);
+    b.y = p.y - s;
+  }
+
+  // Cae por abajo: pierde una vida
+  if (b.y > H) {
+    state.lives--;
+    state.phase = state.lives > 0 ? 'ready' : 'gameover';
+  }
 }
 
 let last = 0;
@@ -91,6 +118,23 @@ function draw() {
   ctx.clearRect(0, 0, W, H);
   drawSprite(ctx, 'paddle', state.paddle.x, paddle.y, paddle.w, paddle.h);
   drawSprite(ctx, 'ball', state.ball.x, state.ball.y, ball.size, ball.size);
+
+  // HUD
+  ctx.fillStyle = '#fff';
+  ctx.font = '20px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('Puntos: ' + state.score, 16, 30);
+  ctx.textAlign = 'right';
+  ctx.fillText('Vidas: ' + state.lives, W - 16, 30);
+
+  if (state.phase === 'gameover' || state.phase === 'won') {
+    ctx.textAlign = 'center';
+    ctx.font = '48px monospace';
+    ctx.fillText(state.phase === 'won' ? 'Victoria' : 'Game Over', W / 2, H / 2 - 20);
+    ctx.font = '24px monospace';
+    ctx.fillText('Puntos: ' + state.score, W / 2, H / 2 + 20);
+    ctx.fillText('Clic o espacio para reiniciar', W / 2, H / 2 + 60);
+  }
 }
 
 loadSpritesheet(() => requestAnimationFrame(t => { last = t; frame(t); }));
