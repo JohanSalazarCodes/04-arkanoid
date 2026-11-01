@@ -2,20 +2,51 @@ const W = 800, H = 600;
 
 const CFG = {
   paddle: { w: 130, h: 14, y: 560, keySpeed: 600 },
-  ball:   { size: 16, speed: 360, maxAngle: 60 }, // grados respecto a la vertical
+  ball:   { size: 16, speed: 360, maxAngle: 60, speedPerLevel: 0.1 }, // maxAngle en grados respecto a la vertical; +10% de speed por nivel
   blocks: { cols: 12, w: 48, h: 24, offsetX: 112, offsetY: 90 }, // sprite 32x16 a escala 1.5x; centrado en W
   lives: 3,
 };
 
-// Orden de filas de arriba a abajo, con sus puntos
-const ROWS = [
-  { color: 'gray',    points: 70 },
-  { color: 'hotpink', points: 60 },
-  { color: 'red',     points: 50 },
-  { color: 'magenta', points: 40 },
-  { color: 'yellow',  points: 30 },
-  { color: 'green',   points: 20 },
-  { color: 'cyan',    points: 10 },
+// Leyenda: letra de los patrones -> color y puntos
+const LEGEND = {
+  g: { color: 'gray',    points: 70 },
+  h: { color: 'hotpink', points: 60 },
+  r: { color: 'red',     points: 50 },
+  m: { color: 'magenta', points: 40 },
+  y: { color: 'yellow',  points: 30 },
+  v: { color: 'green',   points: 20 },
+  c: { color: 'cyan',    points: 10 },
+};
+
+// 12 caracteres por fila; '.' = sin bloque. La fila 0 es la de arriba.
+const LEVELS = [
+  [ // Nivel 1: cuadrícula completa (84 bloques)
+    'gggggggggggg',
+    'hhhhhhhhhhhh',
+    'rrrrrrrrrrrr',
+    'mmmmmmmmmmmm',
+    'yyyyyyyyyyyy',
+    'vvvvvvvvvvvv',
+    'cccccccccccc',
+  ],
+  [ // Nivel 2: pirámide (54 bloques)
+    '.....gg.....',
+    '....hhhh....',
+    '...rrrrrr...',
+    '..mmmmmmmm..',
+    '.yyyyyyyyyy.',
+    'vvvvvvvvvvvv',
+    'cccccccccccc',
+  ],
+  [ // Nivel 3: dos columnas vacías (70 bloques)
+    'ggg.gggg.ggg',
+    'hhh.hhhh.hhh',
+    'rrr.rrrr.rrr',
+    'mmm.mmmm.mmm',
+    'yyy.yyyy.yyy',
+    'vvv.vvvv.vvv',
+    'ccc.cccc.ccc',
+  ],
 ];
 
 const state = {
@@ -26,7 +57,22 @@ const state = {
   ball:   { x: 0, y: 0, vx: 0, vy: 0 },
   blocks: [/* { x, y, color, points, alive } */],
   explosions: [/* { x, y, color, t } */], // t = ms desde la rotura
+  level: 1,                // 1..LEVELS.length
+  muted: false,            // solo en memoria
 };
+
+const sounds = {
+  bounce: new Audio('assets/sounds/ball-bounce.mp3'),
+  break:  new Audio('assets/sounds/break-sound.mp3'),
+};
+
+// Reinicia y reproduce; ignora el rechazo de play() (p. ej. autoplay bloqueado)
+function playSound(name) {
+  if (state.muted) return;
+  const s = sounds[name];
+  s.currentTime = 0;
+  s.play().catch(() => {});
+}
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -51,14 +97,15 @@ function stickBall() {
 
 function createBlocks() {
   const { cols, w, h, offsetX, offsetY } = CFG.blocks;
-  state.blocks = ROWS.flatMap((row, r) =>
-    Array.from({ length: cols }, (_, c) => ({
+  state.blocks = LEVELS[state.level - 1].flatMap((row, r) =>
+    [...row.slice(0, cols)].flatMap((ch, c) => LEGEND[ch] ? [{
       x: offsetX + c * w, y: offsetY + r * h,
-      color: row.color, points: row.points, alive: true,
-    })));
+      color: LEGEND[ch].color, points: LEGEND[ch].points, alive: true,
+    }] : [])); // '.' o letra desconocida = sin bloque
 }
 
 function resetGame() {
+  state.level = 1;
   createBlocks();
   state.explosions = [];
   state.score = 0;
@@ -67,20 +114,23 @@ function resetGame() {
   state.phase = 'ready';
 }
 
+const ballSpeed = () => CFG.ball.speed * (1 + CFG.ball.speedPerLevel * (state.level - 1));
+
 // Lanza hacia arriba con un ángulo aleatorio de ±15° respecto a la vertical.
 // En las pantallas de fin, reinicia la partida.
 function launch() {
   if (state.phase === 'gameover' || state.phase === 'won') return resetGame();
   if (state.phase !== 'ready') return;
   const a = (Math.random() * 30 - 15) * Math.PI / 180;
-  state.ball.vx = CFG.ball.speed * Math.sin(a);
-  state.ball.vy = -CFG.ball.speed * Math.cos(a);
+  state.ball.vx = ballSpeed() * Math.sin(a);
+  state.ball.vy = -ballSpeed() * Math.cos(a);
   state.phase = 'playing';
 }
 
 canvas.addEventListener('mousedown', launch);
 addEventListener('keydown', e => {
   if (e.code === 'Space') { e.preventDefault(); launch(); }
+  if (e.code === 'KeyM' && !e.repeat) state.muted = !state.muted;
 });
 
 const cleared = () => !state.blocks.some(k => k.alive);
@@ -88,8 +138,10 @@ const cleared = () => !state.blocks.some(k => k.alive);
 function update(dt) {
   for (const e of state.explosions) e.t += dt * 1000;
   state.explosions = state.explosions.filter(e => e.t < EXPLOSION_DURATION);
-  if (state.phase === 'playing' && !state.explosions.length && cleared())
-    state.phase = 'won';
+  if (state.phase === 'playing' && !state.explosions.length && cleared()) {
+    if (state.level < LEVELS.length) { state.level++; createBlocks(); state.phase = 'ready'; }
+    else state.phase = 'won';
+  }
 
   const dir = (keys.has('ArrowRight') || keys.has('KeyD')) -
               (keys.has('ArrowLeft') || keys.has('KeyA'));
@@ -101,9 +153,9 @@ function update(dt) {
 
   b.x += b.vx * dt;
   b.y += b.vy * dt;
-  if (b.x < 0)     { b.x = 0;     b.vx = Math.abs(b.vx); }
-  if (b.x > W - s) { b.x = W - s; b.vx = -Math.abs(b.vx); }
-  if (b.y < 0)     { b.y = 0;     b.vy = Math.abs(b.vy); }
+  if (b.x < 0)     { b.x = 0;     b.vx = Math.abs(b.vx);  playSound('bounce'); }
+  if (b.x > W - s) { b.x = W - s; b.vx = -Math.abs(b.vx); playSound('bounce'); }
+  if (b.y < 0)     { b.y = 0;     b.vy = Math.abs(b.vy);  playSound('bounce'); }
 
   // Rebote en la paleta: el ángulo depende del punto de impacto (-1 izq … 1 der)
   const p = CFG.paddle, px = state.paddle.x;
@@ -111,9 +163,10 @@ function update(dt) {
       b.x + s > px && b.x < px + p.w) {
     const hit = Math.max(-1, Math.min(1, (b.x + s / 2 - (px + p.w / 2)) / (p.w / 2)));
     const a = hit * CFG.ball.maxAngle * Math.PI / 180;
-    b.vx = CFG.ball.speed * Math.sin(a);
-    b.vy = -CFG.ball.speed * Math.cos(a);
+    b.vx = ballSpeed() * Math.sin(a);
+    b.vy = -ballSpeed() * Math.cos(a);
     b.y = p.y - s;
+    playSound('bounce');
   }
 
   // Colisión con bloques: rebota por el eje de menor penetración; un bloque por frame
@@ -129,6 +182,7 @@ function update(dt) {
     k.alive = false;
     state.explosions.push({ x: k.x, y: k.y, color: k.color, t: 0 });
     state.score += k.points;
+    playSound('break');
   }
 
   // Cae por abajo: pierde una vida
@@ -164,6 +218,12 @@ function draw() {
   ctx.font = '20px monospace';
   ctx.textAlign = 'left';
   ctx.fillText('Puntos: ' + state.score, 16, 30);
+  ctx.fillText('Nivel ' + state.level, 16, 54);
+  if (state.muted) {
+    ctx.textAlign = 'center';
+    ctx.fillText('Silenciado', W / 2, 30);
+    ctx.textAlign = 'left';
+  }
   for (let i = 0; i < state.lives; i++)
     drawSprite(ctx, 'ball', W - 16 - (i + 1) * (ball.size + 6), 14, ball.size, ball.size);
 
